@@ -53,6 +53,7 @@
 
 #include <ros_sensor.h>
 #include <named_filter.h>
+#include "flux_publisher.h"
 
 #if defined (ACCELERATE_GPU_WITH_GLSL)
 #include <gl_window.h>
@@ -328,7 +329,7 @@ namespace realsense2_camera
         std::shared_ptr<std::thread> _tf_t;
 
         bool _use_intra_process;
-        bool _use_flux;
+        flux_config _flux;
         bool _publish_images;
         std::map<stream_index_pair, std::shared_ptr<image_publisher>> _image_publishers;
         

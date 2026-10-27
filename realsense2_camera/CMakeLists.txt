@@ -237,9 +237,9 @@ add_library(${PROJECT_NAME} SHARED
     ${SOURCES}
 )
 
-get_filename_component(workspace_root "${CMAKE_CURRENT_SOURCE_DIR}/../../../.." ABSOLUTE)
+get_filename_component(flux_config_file "${CMAKE_CURRENT_SOURCE_DIR}/../config/flux.yaml" ABSOLUTE)
 target_compile_definitions(${PROJECT_NAME} PRIVATE
-  REALSENSE_FLUX_CONFIG_FILE="${workspace_root}/config/flux.yaml")
+  REALSENSE_FLUX_CONFIG_FILE="${flux_config_file}")
 target_include_directories(${PROJECT_NAME} PUBLIC ${flux_std_adapters_INCLUDE_DIRS})
 
 if (BUILD_ACCELERATE_GPU_WITH_GLSL)

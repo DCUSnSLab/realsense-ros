@@ -45,15 +45,15 @@ sensor_msgs::msg::Image::UniquePtr ros_image(
 }
 }
 
-image_flux_publisher::image_flux_publisher(RosNodeBase& node, const std::string& topic_name) :
-    _publisher(node, topic_name)
+image_flux_publisher::image_flux_publisher(
+    RosNodeBase& node, const std::string& topic_name, const flux_channel_config& config) :
+    _publisher(node, topic_name, config)
 {}
 
 void image_flux_publisher::publish(
     const cv::Mat& image, const std::string& encoding, const std_msgs::msg::Header& header)
 {
-    auto builder = _publisher.build(sensor_msgs::flux_msg::Image::kScalarBytes +
-        header.frame_id.size() + encoding.size() + image_bytes(image));
+    auto builder = _publisher.build();
     if (!builder)
         return;
     builder.set__header__stamp(header.stamp.sec, header.stamp.nanosec);
@@ -109,8 +109,9 @@ size_t image_transport_publisher::get_subscription_count() const
     return image_publisher_impl->getNumSubscribers();
 }
 
-rgbd_flux_publisher::rgbd_flux_publisher(RosNodeBase& node, const std::string& topic_name) :
-    _publisher(node, topic_name)
+rgbd_flux_publisher::rgbd_flux_publisher(
+    RosNodeBase& node, const std::string& topic_name, const flux_channel_config& config) :
+    _publisher(node, topic_name, config)
 {}
 
 void rgbd_flux_publisher::publish(
@@ -119,12 +120,7 @@ void rgbd_flux_publisher::publish(
     const sensor_msgs::msg::CameraInfo& rgb_info, const sensor_msgs::msg::CameraInfo& depth_info,
     const std_msgs::msg::Header& header)
 {
-    const size_t required = realsense2_camera_msgs::flux_msg::RGBD::kScalarBytes +
-        header.frame_id.size() + 2 * (rgb_info.header.frame_id.size() + depth_info.header.frame_id.size()) +
-        rgb_info.distortion_model.size() + depth_info.distortion_model.size() +
-        14 + (rgb_info.d.size() + depth_info.d.size()) * sizeof(double) +
-        rgb_encoding.size() + depth_encoding.size() + image_bytes(rgb) + image_bytes(depth);
-    auto builder = _publisher.build(required);
+    auto builder = _publisher.build();
     if (!builder)
         return;
     builder.set__header__stamp(header.stamp.sec, header.stamp.nanosec);
@@ -188,10 +184,10 @@ void rgbd_flux_publisher::publish(
 
 std::shared_ptr<image_publisher> realsense2_camera::make_image_publisher(
     RosNodeBase& node, const std::string& topic_name, const rmw_qos_profile_t& qos,
-    bool use_flux, bool use_intra_process)
+    const flux_config& flux, bool use_intra_process)
 {
-    if (use_flux)
-        return std::make_shared<image_flux_publisher>(node, topic_name);
+    if (flux.use_flux)
+        return std::make_shared<image_flux_publisher>(node, topic_name, flux.image);
 #ifdef USE_LIFECYCLE_NODE
     (void)use_intra_process;
     return std::make_shared<image_rcl_publisher>(node, topic_name, qos);

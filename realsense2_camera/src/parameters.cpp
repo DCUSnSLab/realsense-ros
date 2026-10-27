@@ -19,12 +19,22 @@
 
 using namespace realsense2_camera;
 
+flux_config realsense2_camera::load_flux_config(const std::string& path)
+{
+    const YAML::Node root = YAML::LoadFile(path);
+    const auto channel = [&root](const char* name) {
+        const YAML::Node node = root[name];
+        return flux_channel_config{node["slot_size_mib"].as<uint32_t>() << 20, node["slot_count"].as<uint32_t>()};
+    };
+    return {root["use_flux"].as<bool>(), channel("image"), channel("rgbd"), channel("pointcloud")};
+}
+
 void BaseRealSenseNode::getParameters()
 {
     ROS_INFO("getParameters...");
 
-    _use_flux = YAML::LoadFile(REALSENSE_FLUX_CONFIG_FILE)["use_flux"].as<bool>();
-    ROS_INFO_STREAM("Image and pointcloud transport: " << (_use_flux ? "flux" : "ROS"));
+    _flux = load_flux_config(REALSENSE_FLUX_CONFIG_FILE);
+    ROS_INFO_STREAM("Image and pointcloud transport: " << (_flux.use_flux ? "flux" : "ROS"));
 
     std::string param_name;
 

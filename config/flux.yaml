@@ -1,0 +1,12 @@
+use_flux: true
+
+# A frame larger than slot_size_mib is dropped. Each channel reserves slot_size_mib * slot_count in /dev/shm.
+image:
+  slot_size_mib: 8
+  slot_count: 16
+rgbd:
+  slot_size_mib: 16
+  slot_count: 8
+pointcloud:
+  slot_size_mib: 32
+  slot_count: 4

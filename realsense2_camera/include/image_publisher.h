@@ -36,7 +36,7 @@ public:
 class image_flux_publisher : public image_publisher
 {
 public:
-    image_flux_publisher(RosNodeBase& node, const std::string& topic_name);
+    image_flux_publisher(RosNodeBase& node, const std::string& topic_name, const flux_channel_config& config);
     void publish(const cv::Mat& image, const std::string& encoding,
                  const std_msgs::msg::Header& header) override;
     size_t get_subscription_count() const override;
@@ -78,7 +78,7 @@ private:
 class rgbd_flux_publisher
 {
 public:
-    rgbd_flux_publisher(RosNodeBase& node, const std::string& topic_name);
+    rgbd_flux_publisher(RosNodeBase& node, const std::string& topic_name, const flux_channel_config& config);
     void publish(const cv::Mat& rgb, const cv::Mat& depth,
                  const std::string& rgb_encoding, const std::string& depth_encoding,
                  const sensor_msgs::msg::CameraInfo& rgb_info,
@@ -91,6 +91,6 @@ private:
 
 std::shared_ptr<image_publisher> make_image_publisher(
     RosNodeBase& node, const std::string& topic_name, const rmw_qos_profile_t& qos,
-    bool use_flux, bool use_intra_process);
+    const flux_config& flux, bool use_intra_process);
 
 }  // namespace realsense2_camera

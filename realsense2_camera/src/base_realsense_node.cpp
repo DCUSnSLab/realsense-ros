@@ -247,10 +247,10 @@ void BaseRealSenseNode::setupFilters()
 
 #if defined (ACCELERATE_GPU_WITH_GLSL)
     _colorizer_filter = std::make_shared<NamedFilter>(std::make_shared<rs2::gl::colorizer>(), _parameters, _logger); 
-    _pc_filter = std::make_shared<PointcloudFilter>(std::make_shared<rs2::gl::pointcloud>(), _node, _parameters, _logger, _use_flux);
+    _pc_filter = std::make_shared<PointcloudFilter>(std::make_shared<rs2::gl::pointcloud>(), _node, _parameters, _logger, _flux);
 #else
     _colorizer_filter = std::make_shared<NamedFilter>(std::make_shared<rs2::colorizer>(), _parameters, _logger);
-    _pc_filter = std::make_shared<PointcloudFilter>(std::make_shared<rs2::pointcloud>(), _node, _parameters, _logger, _use_flux);
+    _pc_filter = std::make_shared<PointcloudFilter>(std::make_shared<rs2::pointcloud>(), _node, _parameters, _logger, _flux);
 #endif
 
     // Apply PointCloud filter before applying Align-depth as it requires original depth image not aligned-depth image.

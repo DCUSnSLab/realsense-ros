@@ -17,6 +17,9 @@ using namespace realsense2_camera;
 
 namespace
 {
+const flux_config kFlux{true, {8U << 20, 4}, {8U << 20, 4}, {8U << 20, 4}};
+const flux_config kRos{false, kFlux.image, kFlux.rgbd, kFlux.pointcloud};
+
 rs2::frameset synthetic_frames(rs2_format texture_format)
 {
     rs2::software_device device;
@@ -97,7 +100,7 @@ protected:
 
 TEST_F(FluxTransport, FluxImagePreservesPixelsMetadataAndRemapping)
 {
-    auto publisher = make_image_publisher(*node, "~/image", rmw_qos_profile_default, true, false);
+    auto publisher = make_image_publisher(*node, "~/image", rmw_qos_profile_default, kFlux, false);
     flux::Subscription subscriber(*node, "~/image", sensor_msgs::flux_msg::Image::kFingerprint);
     const auto expected = image();
     publisher->publish(cv::Mat(expected.height, expected.width, CV_16UC1,
@@ -114,7 +117,7 @@ TEST_F(FluxTransport, RosImageRetainsNativeAndImageTransportPaths)
 {
     for (bool intra_process : {false, true})
     {
-        auto publisher = make_image_publisher(*node, "~/image", rmw_qos_profile_default, false, intra_process);
+        auto publisher = make_image_publisher(*node, "~/image", rmw_qos_profile_default, kRos, intra_process);
         bool received = false;
         const auto expected = image();
         auto subscriber = node->create_subscription<sensor_msgs::msg::Image>(
@@ -138,7 +141,7 @@ TEST_F(FluxTransport, RosImageRetainsNativeAndImageTransportPaths)
 
 TEST_F(FluxTransport, FluxImageCopiesRowsWithoutSourcePadding)
 {
-    auto publisher = make_image_publisher(*node, "~/image", rmw_qos_profile_default, true, true);
+    auto publisher = make_image_publisher(*node, "~/image", rmw_qos_profile_default, kFlux, true);
     flux::Subscription subscriber(*node, "~/image", sensor_msgs::flux_msg::Image::kFingerprint);
     std::array<uint8_t, 16> pixels = {1, 2, 3, 4, 5, 6, 99, 99, 7, 8, 9, 10, 11, 12, 99, 99};
     cv::Mat source(2, 2, CV_8UC3, pixels.data(), 8);
@@ -151,24 +154,19 @@ TEST_F(FluxTransport, FluxImageCopiesRowsWithoutSourcePadding)
     EXPECT_EQ(received.data, (std::vector<uint8_t>{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}));
 }
 
-TEST_F(FluxTransport, FluxImageGrowsBeyondDefaultSlot)
+TEST_F(FluxTransport, FluxImageLargerThanSlotIsDropped)
 {
-    auto publisher = make_image_publisher(*node, "~/image", rmw_qos_profile_default, true, true);
-    cv::Mat source(1200, 2000, CV_8UC4, cv::Scalar(1, 2, 3, 4));
-    const auto header = image().header;
-    publisher->publish(source, "rgba8", header);
+    auto config = kFlux;
+    config.image.slot_size = 1U << 20;
+    auto publisher = make_image_publisher(*node, "~/image", rmw_qos_profile_default, config, true);
     flux::Subscription subscriber(*node, "~/image", sensor_msgs::flux_msg::Image::kFingerprint);
-    publisher->publish(source, "rgba8", header);
-    auto frame = subscriber.take_blocking(1000000000);
-    ASSERT_TRUE(frame);
-    const sensor_msgs::flux_msg::Image::View view(frame);
-    ASSERT_EQ(view.data().size(), source.total() * source.elemSize());
-    EXPECT_EQ(std::memcmp(view.data().data(), source.data, view.data().size()), 0);
+    publisher->publish(cv::Mat(1024, 1024, CV_8UC1, cv::Scalar(1)), "mono8", image().header);
+    EXPECT_FALSE(subscriber.take_blocking(200000000));
 }
 
 TEST_F(FluxTransport, FluxRgbdPreservesImagesAndBothCalibrations)
 {
-    rgbd_flux_publisher publisher(*node, "~/rgbd");
+    rgbd_flux_publisher publisher(*node, "~/rgbd", kFlux.rgbd);
     flux::Subscription subscriber(*node, "~/rgbd", realsense2_camera_msgs::flux_msg::RGBD::kFingerprint);
     cv::Mat rgb(2, 3, CV_8UC3, cv::Scalar(11, 22, 33));
     cv::Mat depth(2, 3, CV_16UC1, cv::Scalar(1000));
@@ -222,8 +220,8 @@ TEST_F(FluxTransport, SdkPointcloudMatchesRosForOrderedCompactRgbAndIntensity)
         auto flux_node = std::make_shared<rclcpp::Node>("flux_camera", options);
         auto ros_params = std::make_shared<Parameters>(*ros_node);
         auto flux_params = std::make_shared<Parameters>(*flux_node);
-        PointcloudFilter ros_filter(sdk_filter, *ros_node, ros_params, ros_node->get_logger(), false, true);
-        PointcloudFilter flux_filter(sdk_filter, *flux_node, flux_params, flux_node->get_logger(), true, true);
+        PointcloudFilter ros_filter(sdk_filter, *ros_node, ros_params, ros_node->get_logger(), kRos, true);
+        PointcloudFilter flux_filter(sdk_filter, *flux_node, flux_params, flux_node->get_logger(), kFlux, true);
         ros_filter.setPublisher();
         flux_filter.setPublisher();
         sensor_msgs::msg::PointCloud2::ConstSharedPtr ros_message;

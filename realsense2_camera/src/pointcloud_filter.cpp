@@ -22,12 +22,12 @@
 using namespace realsense2_camera;
 
 
-PointcloudFilter::PointcloudFilter(std::shared_ptr<rs2::filter> filter, RosNodeBase& node, std::shared_ptr<Parameters> parameters, rclcpp::Logger logger, bool use_flux, bool is_enabled):
+PointcloudFilter::PointcloudFilter(std::shared_ptr<rs2::filter> filter, RosNodeBase& node, std::shared_ptr<Parameters> parameters, rclcpp::Logger logger, const flux_config& flux, bool is_enabled):
     NamedFilter(filter, parameters, logger, is_enabled, false),
     _node(node),
     _allow_no_texture_points(ALLOW_NO_TEXTURE_POINTS),
     _ordered_pc(ORDERED_PC),
-    _use_flux(use_flux)
+    _flux(flux)
     {
         setParameters();
     }
@@ -70,11 +70,11 @@ void PointcloudFilter::setParameters()
 void PointcloudFilter::setPublisher()
 {
     std::lock_guard<std::mutex> lock_guard(_mutex_publisher);
-    if (_use_flux)
+    if (_flux.use_flux)
     {
         if (_is_enabled && !_flux_pointcloud_publisher)
             _flux_pointcloud_publisher = std::make_unique<flux_publisher<sensor_msgs::flux_msg::PointCloud2>>(
-                _node, "~/depth/color/points");
+                _node, "~/depth/color/points", _flux.pointcloud);
         else if (!_is_enabled)
             _flux_pointcloud_publisher.reset();
         return;
@@ -104,7 +104,7 @@ void PointcloudFilter::Publish(rs2::points pc, const rclcpp::Time& t, const rs2:
 {
     {
         std::lock_guard<std::mutex> lock_guard(_mutex_publisher);
-        if (_use_flux ? !_flux_pointcloud_publisher :
+        if (_flux.use_flux ? !_flux_pointcloud_publisher :
             ((!_pointcloud_publisher) || (!(_pointcloud_publisher->get_subscription_count()))))
             return;
     }
@@ -176,15 +176,11 @@ void PointcloudFilter::Publish(rs2::points pc, const rclcpp::Time& t, const rs2:
     };
     const std::array<std::string, 4> names = {"x", "y", "z", texture_name};
     std::lock_guard<std::mutex> lock_guard(_mutex_publisher);
-    if (_use_flux)
+    if (_flux.use_flux)
     {
         if (!_flux_pointcloud_publisher)
             return;
-        size_t required = sensor_msgs::flux_msg::PointCloud2::kScalarBytes + frame_id.size() +
-            3 + field_count * sensor_msgs::flux_msg::PointCloud2::FieldsElem::kStride + nbytes;
-        for (size_t index = 0; index < field_count; ++index)
-            required += names[index].size();
-        auto builder = _flux_pointcloud_publisher->build(required);
+        auto builder = _flux_pointcloud_publisher->build();
         if (!builder)
             return;
         const builtin_interfaces::msg::Time stamp = t;

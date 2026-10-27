@@ -245,7 +245,7 @@ void BaseRealSenseNode::startPublishers(const std::vector<stream_profile>& profi
             camera_info << "~/" << stream_name << "/camera_info";
 
             _image_publishers[sip] = make_image_publisher(
-                _node, image_raw.str(), qos, _use_flux, _use_intra_process);
+                _node, image_raw.str(), qos, _flux, _use_intra_process);
 
             _info_publishers[sip] = _node.create_publisher<sensor_msgs::msg::CameraInfo>(camera_info.str(),
                                     rclcpp::QoS(rclcpp::QoSInitialization::from_rmw(info_qos), info_qos));
@@ -259,7 +259,7 @@ void BaseRealSenseNode::startPublishers(const std::vector<stream_profile>& profi
                 std::string aligned_stream_name = "aligned_depth_to_" + stream_name;
 
                 _depth_aligned_image_publishers[sip] = make_image_publisher(
-                    _node, aligned_image_raw.str(), qos, _use_flux, _use_intra_process);
+                    _node, aligned_image_raw.str(), qos, _flux, _use_intra_process);
 
                 _depth_aligned_info_publisher[sip] = _node.create_publisher<sensor_msgs::msg::CameraInfo>(aligned_camera_info.str(),
                     rclcpp::QoS(rclcpp::QoSInitialization::from_rmw(info_qos), info_qos));
@@ -328,8 +328,8 @@ void BaseRealSenseNode::startRGBDPublisherIfNeeded()
 
             // adding "~/" to the topic name will add node namespace and node name to the topic
             // see "Private Namespace Substitution Character" section on https://design.ros2.org/articles/topic_and_service_names.html
-            if (_use_flux)
-                _flux_rgbd_publisher = std::make_unique<rgbd_flux_publisher>(_node, "~/rgbd");
+            if (_flux.use_flux)
+                _flux_rgbd_publisher = std::make_unique<rgbd_flux_publisher>(_node, "~/rgbd", _flux.rgbd);
             else
                 _rgbd_publisher = _node.create_publisher<realsense2_camera_msgs::msg::RGBD>("~/rgbd",
                     rclcpp::QoS(rclcpp::QoSInitialization::from_rmw(qos), qos));
