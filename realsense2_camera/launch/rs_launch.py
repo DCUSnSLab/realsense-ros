@@ -19,8 +19,12 @@ from launch import LaunchDescription
 import launch_ros.actions
 from launch.actions import DeclareLaunchArgument, OpaqueFunction, LogInfo
 from launch.substitutions import LaunchConfiguration
+from launch_ros.descriptions import ComposableNode
+from launch_ros.parameter_descriptions import ParameterValue
 
-configurable_parameters = [{'name': 'camera_name',                  'default': 'camera', 'description': 'camera unique name'},
+configurable_parameters = [{'name': 'intra_process_comms', 'default': 'true', 'description': 'enable intra-process communication'},
+                           {'name': 'publish_images', 'default': 'true', 'description': 'publish individual images in addition to RGBD'},
+                           {'name': 'camera_name',                  'default': 'camera', 'description': 'camera unique name'},
                            {'name': 'camera_namespace',             'default': 'camera', 'description': 'namespace for camera'},
                            {'name': 'serial_no',                    'default': "''", 'description': 'choose device by serial number'},
                            {'name': 'usb_port_id',                  'default': "''", 'description': 'choose device by usb port id'},
@@ -115,9 +119,6 @@ def launch_setup(context, params, param_name_suffix=''):
 
     _output = LaunchConfiguration('output' + param_name_suffix)
     
-    # Dynamically choose Node or LifecycleNode
-    node_action = launch_ros.actions.LifecycleNode if use_lifecycle_node else launch_ros.actions.Node
-    log_message = "Launching as LifecycleNode" if use_lifecycle_node else "Launching as Normal ROS Node"
 
     if(os.getenv('ROS_DISTRO') == 'foxy'):
         # Foxy doesn't support output as substitution object (LaunchConfiguration object)
@@ -125,19 +126,23 @@ def launch_setup(context, params, param_name_suffix=''):
         # see related PR that was merged for humble, iron, rolling: https://github.com/ros2/launch/pull/577
         _output = context.perform_substitution(_output)
 
-    return [
-        LogInfo(msg=f"🚀 {log_message}"),
-        node_action(
-            package='realsense2_camera',
-            namespace=LaunchConfiguration('camera_namespace' + param_name_suffix),
-            name=LaunchConfiguration('camera_name' + param_name_suffix),
-            executable='realsense2_camera_node',
-            parameters=[params, params_from_file],
-            output=_output,
-            arguments=['--ros-args', '--log-level', LaunchConfiguration('log_level' + param_name_suffix)],
-            emulate_tty=True,
-            )
-    ]
+    camera_name = LaunchConfiguration('camera_name' + param_name_suffix)
+    camera_namespace = LaunchConfiguration('camera_namespace' + param_name_suffix)
+    log_arguments = ['--ros-args', '--log-level', LaunchConfiguration('log_level' + param_name_suffix)]
+    if use_lifecycle_node:
+        return [launch_ros.actions.LifecycleNode(
+            package='realsense2_camera', namespace=camera_namespace, name=camera_name,
+            executable='realsense2_camera_node', parameters=[params, params_from_file],
+            output=_output, arguments=log_arguments, emulate_tty=True)]
+    return [launch_ros.actions.ComposableNodeContainer(
+        name=[camera_name, '_container'], namespace='', package='rclcpp_components',
+        executable='component_container', output=_output, arguments=log_arguments, emulate_tty=True,
+        composable_node_descriptions=[ComposableNode(
+            package='realsense2_camera', plugin='realsense2_camera::RealSenseNodeFactory',
+            namespace=camera_namespace, name=camera_name, parameters=[params, params_from_file],
+            extra_arguments=[{'use_intra_process_comms': ParameterValue(
+                LaunchConfiguration('intra_process_comms' + param_name_suffix), value_type=bool)}])])]
+
 
 def generate_launch_description():
     return LaunchDescription(declare_configurable_parameters(configurable_parameters) + [

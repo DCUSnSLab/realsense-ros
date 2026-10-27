@@ -244,26 +244,8 @@ void BaseRealSenseNode::startPublishers(const std::vector<stream_profile>& profi
             image_raw << "~/" << stream_name << "/image_" << ((rectified_image)?"rect_":"") << "raw";
             camera_info << "~/" << stream_name << "/camera_info";
 
-            // We can use 2 types of publishers:
-            // 1. Native RCL publisher (supports intra-process zero-copy communication)
-            // 2. Image-transport package publisher (adds a compressed image topic if installed)
-
-            #ifdef USE_LIFECYCLE_NODE
-            // Always use `image_rcl_publisher` when lifecycle nodes are enabled
-            _image_publishers[sip] = std::make_shared<image_rcl_publisher>(_node, image_raw.str(), qos);
-            #else
-            // 🚀 Use intra-process if enabled, otherwise use image_transport
-            if (_use_intra_process)
-            {
-                _image_publishers[sip] = std::make_shared<image_rcl_publisher>(_node, image_raw.str(), qos);
-            }
-            else
-            {
-                _image_publishers[sip] = std::make_shared<image_transport_publisher>(_node, image_raw.str(), qos);
-                ROS_DEBUG_STREAM("image transport publisher was created for topic " << image_raw.str());
-            }
-            #endif
-
+            _image_publishers[sip] = make_image_publisher(
+                _node, image_raw.str(), qos, _use_flux, _use_intra_process);
 
             _info_publishers[sip] = _node.create_publisher<sensor_msgs::msg::CameraInfo>(camera_info.str(),
                                     rclcpp::QoS(rclcpp::QoSInitialization::from_rmw(info_qos), info_qos));
@@ -276,24 +258,8 @@ void BaseRealSenseNode::startPublishers(const std::vector<stream_profile>& profi
 
                 std::string aligned_stream_name = "aligned_depth_to_" + stream_name;
 
-                // We can use 2 types of publishers:
-                // Native RCL publisher that support intra-process zero-copy comunication
-                // image-transport package publisher that add's a commpressed image topic if the package is installed
-                #ifdef USE_LIFECYCLE_NODE
-                    // Always use `image_rcl_publisher` when lifecycle nodes are enabled
-                    _depth_aligned_image_publishers[sip] = std::make_shared<image_rcl_publisher>(_node, aligned_image_raw.str(), qos);
-                #else
-                    // Use intra-process if enabled, otherwise use image_transport
-                    if (_use_intra_process)
-                    {
-                        _depth_aligned_image_publishers[sip] = std::make_shared<image_rcl_publisher>(_node, aligned_image_raw.str(), qos);
-                    }
-                    else
-                    {
-                        _depth_aligned_image_publishers[sip] = std::make_shared<image_transport_publisher>(_node, aligned_image_raw.str(), qos);
-                        ROS_DEBUG_STREAM("image transport publisher was created for topic " << aligned_image_raw.str());
-                    }
-                #endif
+                _depth_aligned_image_publishers[sip] = make_image_publisher(
+                    _node, aligned_image_raw.str(), qos, _use_flux, _use_intra_process);
 
                 _depth_aligned_info_publisher[sip] = _node.create_publisher<sensor_msgs::msg::CameraInfo>(aligned_camera_info.str(),
                     rclcpp::QoS(rclcpp::QoSInitialization::from_rmw(info_qos), info_qos));
@@ -353,6 +319,7 @@ void BaseRealSenseNode::startPublishers(const std::vector<stream_profile>& profi
 void BaseRealSenseNode::startRGBDPublisherIfNeeded()
 {
     _rgbd_publisher.reset();
+    _flux_rgbd_publisher.reset();
     if(_enable_rgbd && !_rgbd_publisher)
     {
         if (_sync_frames && _is_color_enabled && _is_depth_enabled && _align_depth_filter->is_enabled())
@@ -361,8 +328,11 @@ void BaseRealSenseNode::startRGBDPublisherIfNeeded()
 
             // adding "~/" to the topic name will add node namespace and node name to the topic
             // see "Private Namespace Substitution Character" section on https://design.ros2.org/articles/topic_and_service_names.html
-            _rgbd_publisher = _node.create_publisher<realsense2_camera_msgs::msg::RGBD>("~/rgbd",
-                rclcpp::QoS(rclcpp::QoSInitialization::from_rmw(qos), qos));
+            if (_use_flux)
+                _flux_rgbd_publisher = std::make_unique<rgbd_flux_publisher>(_node, "~/rgbd");
+            else
+                _rgbd_publisher = _node.create_publisher<realsense2_camera_msgs::msg::RGBD>("~/rgbd",
+                    rclcpp::QoS(rclcpp::QoSInitialization::from_rmw(qos), qos));
         }
         else {
             ROS_ERROR("In order to get rgbd topic enabled, "\

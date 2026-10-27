@@ -19,6 +19,9 @@
   <depend>image_transport</depend>
   <depend>librealsense2</depend>
   <depend>rclcpp</depend>
+  <depend>flux_cpp</depend>
+  <depend>flux_std_adapters</depend>
+  <depend>yaml-cpp</depend>
 
   <!-- Lifecycle dependencies are optional -DUSE_LIFECYCLE_NODE -->
   <depend>rclcpp_lifecycle</depend>

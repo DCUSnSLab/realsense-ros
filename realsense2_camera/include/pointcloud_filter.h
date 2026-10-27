@@ -21,13 +21,14 @@
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <ros_sensor.h>
 #include "named_filter.h"
+#include "flux_publisher.h"
 
 namespace realsense2_camera
 {
     class PointcloudFilter : public NamedFilter
     {
         public:
-            PointcloudFilter(std::shared_ptr<rs2::filter> filter, RosNodeBase& node, std::shared_ptr<Parameters> parameters, rclcpp::Logger logger, bool is_enabled=false);
+            PointcloudFilter(std::shared_ptr<rs2::filter> filter, RosNodeBase& node, std::shared_ptr<Parameters> parameters, rclcpp::Logger logger, bool use_flux, bool is_enabled=false);
         
             void setPublisher();
             void Publish(rs2::points pc, const rclcpp::Time& t, const rs2::frameset& frameset, const std::string& frame_id);
@@ -42,6 +43,8 @@ namespace realsense2_camera
             bool _ordered_pc;
             std::mutex _mutex_publisher;
             rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr _pointcloud_publisher;
+            bool _use_flux;
+            std::unique_ptr<flux_publisher<sensor_msgs::flux_msg::PointCloud2>> _flux_pointcloud_publisher;
             std::string _pointcloud_qos;
     };
 }

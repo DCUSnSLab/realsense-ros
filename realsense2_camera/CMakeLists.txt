@@ -109,6 +109,9 @@ find_package(builtin_interfaces REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(image_transport REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(flux_cpp REQUIRED)
+find_package(flux_std_adapters REQUIRED)
+find_package(yaml-cpp REQUIRED)
 find_package(rclcpp_action REQUIRED)
 find_package(rclcpp_components REQUIRED)
 find_package(realsense2_camera_msgs REQUIRED)
@@ -234,6 +237,11 @@ add_library(${PROJECT_NAME} SHARED
     ${SOURCES}
 )
 
+get_filename_component(workspace_root "${CMAKE_CURRENT_SOURCE_DIR}/../../../.." ABSOLUTE)
+target_compile_definitions(${PROJECT_NAME} PRIVATE
+  REALSENSE_FLUX_CONFIG_FILE="${workspace_root}/config/flux.yaml")
+target_include_directories(${PROJECT_NAME} PUBLIC ${flux_std_adapters_INCLUDE_DIRS})
+
 if (BUILD_ACCELERATE_GPU_WITH_GLSL)
   set(link_libraries ${realsense2-gl_LIBRARY})
 else()
@@ -244,6 +252,8 @@ list(APPEND link_libraries ${OpenCV_LIBS})  # add OpenCV libs to link_libraries
 
 target_link_libraries(${PROJECT_NAME}
     ${link_libraries}
+    flux_cpp::flux_cpp
+    yaml-cpp
 )
 
 set(dependencies
@@ -332,6 +342,8 @@ install(DIRECTORY
 # Test
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
+  ament_add_gtest(test_flux_transport test/test_flux_transport.cpp)
+  target_link_libraries(test_flux_transport ${PROJECT_NAME})
   set(_gtest_folders
     test
   )
@@ -407,6 +419,6 @@ endif()
 # Ament exports
 ament_export_include_directories(include)
 ament_export_libraries(${PROJECT_NAME})
-ament_export_dependencies(${dependencies})
+ament_export_dependencies(${dependencies} flux_cpp flux_std_adapters)
 
 ament_package()

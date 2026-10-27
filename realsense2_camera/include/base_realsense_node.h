@@ -78,6 +78,7 @@ namespace realsense2_camera
     typedef std::pair<rs2_stream, int> stream_index_pair;
 
     class image_publisher; // forward declaration
+    class rgbd_flux_publisher;
 
     class PipelineSyncer : public rs2::asynchronous_syncer
     {
@@ -326,7 +327,9 @@ namespace realsense2_camera
         std::vector<geometry_msgs::msg::TransformStamped> _static_tf_msgs;
         std::shared_ptr<std::thread> _tf_t;
 
-        bool _use_intra_process;      
+        bool _use_intra_process;
+        bool _use_flux;
+        bool _publish_images;
         std::map<stream_index_pair, std::shared_ptr<image_publisher>> _image_publishers;
         
         std::map<stream_index_pair, rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr> _imu_publishers;
@@ -336,6 +339,7 @@ namespace realsense2_camera
         std::map<stream_index_pair, rclcpp::Publisher<IMUInfo>::SharedPtr> _imu_info_publishers;
         std::map<stream_index_pair, rclcpp::Publisher<Extrinsics>::SharedPtr> _extrinsics_publishers;
         rclcpp::Publisher<realsense2_camera_msgs::msg::RGBD>::SharedPtr _rgbd_publisher;
+        std::unique_ptr<rgbd_flux_publisher> _flux_rgbd_publisher;
         std::map<stream_index_pair, cv::Mat> _images;
         std::map<rs2_format, std::string> _rs_format_to_ros_format;
         std::map<rs2_format, int> _rs_format_to_cv_format;

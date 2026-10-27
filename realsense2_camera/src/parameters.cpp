@@ -15,6 +15,7 @@
 #include "../include/base_realsense_node.h"
 #include <ros_utils.h>
 #include <iomanip>
+#include <yaml-cpp/yaml.h>
 
 using namespace realsense2_camera;
 
@@ -22,7 +23,14 @@ void BaseRealSenseNode::getParameters()
 {
     ROS_INFO("getParameters...");
 
+    _use_flux = YAML::LoadFile(REALSENSE_FLUX_CONFIG_FILE)["use_flux"].as<bool>();
+    ROS_INFO_STREAM("Image and pointcloud transport: " << (_use_flux ? "flux" : "ROS"));
+
     std::string param_name;
+
+    param_name = "publish_images";
+    _publish_images = _parameters->setParam<bool>(param_name, true);
+    _parameters_names.push_back(param_name);
 
     param_name = std::string("camera_name");
     _camera_name = _parameters->setParam<std::string>(param_name, "camera");
